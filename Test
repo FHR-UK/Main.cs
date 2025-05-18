@@ -188,7 +188,7 @@ public class Main : IPlugin
                             debugMessage = debugMessage + " replacing \"" + GetItemNameFromLink(EquippedItem1.GetItemInfo.ItemLink) + "\" id " + EquippedItem1.Entry + " value " + getItemValue(EquippedItem1);
                         }
                         while (ObjectManager.Me.InCombat || ObjectManager.Me.IsDead) { Thread.Sleep(shortDelay); }
-                        wManager.Wow.Helpers.ItemsManager.EquipItemByName(GetItemNameFromLink(item.GetItemInfo.ItemLink));
+                        wManager.Wow.Helpers.ItemsManager.EquipItemByName(item.GetItemInfo.ItemName);
                         Thread.Sleep(shortDelay);
                         Lua.LuaDoString<string>("EquipPendingItem(0);");
                         Thread.Sleep(longDelay);
@@ -344,28 +344,30 @@ public class Main : IPlugin
         string normalized = russianStat.ToLowerInvariant().Trim();
 
         Dictionary<string, string> statTranslations = new Dictionary<string, string>
-    {
-        { "интеллекту", "INTELLECT" },
-        { "интеллект", "INTELLECT" },
-        { "рейтинг критического удара", "CRIT_RATING" },
-        { "рейтинг парирования", "PARRY_RATING" },
-        { "рейтинг меткости", "HIT_RATING" },
-        { "сила заклинаний", "SPELL_POWER" },
-        { "выносливости", "STAMINA" },
-        { "выносливость", "STAMINA" },
-        { "мана в 5 сек.", "MANA_REGENERATION" },
-        { "рейтинг мастерства", "EXPERTISE_RATING" },
-        { "сила атаки", "ATTACK_POWER" },
-        { "броня", "ARMOR" },
-        { "дух", "SPIRIT" },
-        { "урон в секунду", "DAMAGE_PER_SECOND" },
-        { "сила", "STRENGTH" },
-        { "ловкость", "AGILITY" },
-        { "рейтинг уклонения", "DODGE_RATING" },
-        { "рейтинг защиты", "DEFENSE_SKILL_RATING" },
-        { "рейтингу защиты", "DEFENSE_SKILL_RATING" } // ← как в тултипе
-    };
-
+{
+    { "интеллекту", "INTELLECT" },
+    { "интеллект", "INTELLECT" },
+    { "рейтинг критического удара", "CRIT_RATING" },
+    { "рейтинг парирования", "PARRY_RATING" },
+    { "рейтинг меткости", "HIT_RATING" },
+    { "сила заклинаний", "SPELL_POWER" },
+    { "выносливость", "STAMINA" },
+    { "выносливости", "STAMINA" },
+    { "мана в 5 сек.", "MANA_REGENERATION" },
+    { "рейтинг мастерства", "EXPERTISE_RATING" },
+    { "сила атаки", "ATTACK_POWER" },
+    { "силе атаки", "ATTACK_POWER" },         // ← добавлено
+    { "броня", "ARMOR" },
+    { "дух", "SPIRIT" },
+    { "урон в секунду", "DAMAGE_PER_SECOND" },
+    { "сила", "STRENGTH" },
+    { "силе", "STRENGTH" },                   // ← добавлено
+    { "ловкость", "AGILITY" },
+    { "ловкости", "AGILITY" },                // ← добавлено
+    { "рейтинг уклонения", "DODGE_RATING" },
+    { "рейтинг защиты", "DEFENSE_SKILL_RATING" },
+    { "рейтингу защиты", "DEFENSE_SKILL_RATING" } // ← уже добавлено
+};
         foreach (var pair in statTranslations)
         {
             if (normalized.Contains(pair.Key))
@@ -382,14 +384,17 @@ public class Main : IPlugin
         WoWClass playerClass = ObjectManager.Me.WowClass;
         bool hasCustomMultipliers = ButlerSettings.ClassMultipliers.ContainsKey(playerClass);
 
-        string[] lines = tooltipText.Split('\n');
+        string[] lines = tooltipText.Split(';')
+            .Select(l => l.Trim())
+            .Where(l => !string.IsNullOrWhiteSpace(l))
+            .ToArray();
 
         // Основные паттерны
         var patterns = new List<Regex>
     {
-        new Regex(@"\+(\d+)\s+к\s+(.+)", RegexOptions.IgnoreCase),         // +16 к силе
-        new Regex(@"(.+):\s*(\d+)", RegexOptions.IgnoreCase),              // Броня: 170
-        new Regex(@"Если на персонаже: .*?(\d+)\s+(.+)", RegexOptions.IgnoreCase) // Если на персонаже: Увеличивает силу заклинаний на 25
+        new Regex(@"\+(\d+)\s+к\s+(.+)", RegexOptions.IgnoreCase),         
+        new Regex(@"(.+):\s*(\d+)", RegexOptions.IgnoreCase),             
+        new Regex(@"Если на персонаже: .*?(\d+)\s+(.+)", RegexOptions.IgnoreCase) // 
     };
 
         foreach (string rawLine in lines)
@@ -401,8 +406,8 @@ public class Main : IPlugin
                 var match = pattern.Match(line);
                 if (match.Success)
                 {
-                    string statValueStr = match.Groups[1].Value;
-                    string statNameRaw = match.Groups[2].Value;
+                    string statNameRaw = match.Groups[1].Value;
+                    string statValueStr = match.Groups[2].Value;
 
                     if (!float.TryParse(statValueStr, NumberStyles.Any, CultureInfo.InvariantCulture, out float statValue))
                         continue;
